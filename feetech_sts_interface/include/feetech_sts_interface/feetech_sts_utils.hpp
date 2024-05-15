@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cstdint>
 #define STS3032_ANGLE_360 4096
 
 namespace feetech_sts_interface
@@ -21,8 +22,8 @@ namespace feetech_sts_interface
 
 namespace STS3032
 {
-float data2angle(int);
-int angle2data(const float);
+float data2angle(int32_t);
+int32_t angle2data(const float);
 }
 
 }  // namespace feetech_sts_interface

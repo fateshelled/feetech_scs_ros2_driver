@@ -18,12 +18,12 @@
 namespace feetech_sts_interface
 {
 
-float STS3032::data2angle(int data)
+float STS3032::data2angle(int32_t data)
 {
   return ((float)data * 360 / STS3032_ANGLE_360);
 }
 
-int STS3032::angle2data(const float angle)
+int32_t STS3032::angle2data(const float angle)
 {
   return (int)(angle * STS3032_ANGLE_360 / 360);
 }

@@ -53,15 +53,15 @@ namespace feetech_sts_interface
         }
     }
 
-    int PacketHandler::STS2host(const u_char data_l, const u_char data_h)
+    int16_t PacketHandler::STS2host(const u_char data_l, const u_char data_h)
     {
         if (END_)
         {
-            return int((data_l << 8) + data_h);
+            return int16_t((data_l << 8) | data_h);
         }
         else
         {
-            return int((data_h << 8) + data_l);
+            return int16_t((data_h << 8) | data_l);
         }
     }
 
@@ -77,10 +77,10 @@ namespace feetech_sts_interface
         return STS2host(buf[0], buf[1]);
     }
 
-    int PacketHandler::ask(const u_char id)
+    int16_t PacketHandler::ask(const u_char id)
     {
-        int error_ = 0;
-        int level_ = 1;
+        // int32_t error_ = 0;
+        int32_t level_ = 1;
         if (id != 0xfe && level_)
         {
             if (!checkHead())
@@ -105,12 +105,12 @@ namespace feetech_sts_interface
             {
                 return 0;
             }
-            error_ = b_buf[2];
+            // error_ = b_buf[2];
         }
         return 1;
     }
 
-    int PacketHandler::checkHead()
+    int16_t PacketHandler::checkHead()
     {
         uint8_t b_dat;
         uint8_t b_buf[2] = {0, 0};
@@ -136,10 +136,10 @@ namespace feetech_sts_interface
         return 1;
     }
 
-    int PacketHandler::read(const u_char id, const u_char mem_adder, u_char *n_data, u_char n_len)
+    int16_t PacketHandler::read(const u_char id, const u_char mem_adder, u_char *n_data, u_char n_len)
     {
         read_flush();
-        writeBuf(id, mem_adder, &n_len, 1, INST_READ);
+        bool write_success =writeBuf(id, mem_adder, &n_len, 1, INST_READ);
         write_flush();
 
         if (!checkHead())
@@ -151,7 +151,7 @@ namespace feetech_sts_interface
         {
             return 0;
         }
-        int size = port_handler_->read(reinterpret_cast<char *>(n_data), n_len);
+        int16_t size = port_handler_->read(reinterpret_cast<char *>(n_data), n_len);
         if (size != n_len)
         {
             return 0;
@@ -161,7 +161,7 @@ namespace feetech_sts_interface
             return 0;
         }
         u_char cal_sum = buf[0] + buf[1] + buf[2];
-        for (u_char i = 0; i < size; ++i)
+        for (int16_t i = 0; i < size; ++i)
         {
             cal_sum += n_data[i];
         }
@@ -249,13 +249,13 @@ namespace feetech_sts_interface
         return writeByte(id, SMS_STS_MODE, 3);
     }
 
-    bool PacketHandler::ping(int id)
+    bool PacketHandler::ping(int32_t id)
     {
         read_flush();
         auto ret = writeBuf(id, 0, nullptr, 0, INST_PING);
         write_flush();
 
-        int error_ = 0;
+        // int32_t error_ = 0;
         if (!checkHead())
         {
             return -1;
@@ -278,7 +278,7 @@ namespace feetech_sts_interface
         {
             return -1;
         }
-        error_ = b_buf[2];
+        // error_ = b_buf[2];
         return ret;
     }
 
@@ -442,37 +442,36 @@ namespace feetech_sts_interface
 
     }
 
-    int16_t PacketHandler::readPos(const u_char id)
+    bool PacketHandler::readPos(const u_char id, int16_t &pos)
     {
-        int err = 0;
-        int16_t pos = -1;
-        pos = this->readWord(id, SMS_STS_PRESENT_POSITION_L);
-        if (pos == -1)
+        int16_t val = this->readWord(id, SMS_STS_PRESENT_POSITION_L);
+        if (val == -1)
         {
-            err = 1;
+            return false;
         }
-        if (!err && (pos & (1 << 15)))
+        pos = val;
+        if (pos & (1 << 15))
         {
             pos = -(pos & ~(1 << 15));
         }
-        return pos;
+        return true;
     }
 
-    int16_t PacketHandler::readSpd(const u_char id)
+    bool PacketHandler::readSpd(const u_char id, int16_t &speed)
     {
-        int err = 0;
-        int16_t speed = -1;
-        speed = this->readWord(id, SMS_STS_PRESENT_SPEED_L);
-        if (speed == -1)
+        int16_t val = -1;
+        val = this->readWord(id, SMS_STS_PRESENT_SPEED_L);
+        if (val == -1)
         {
-            err = 1;
-            return -1;
+            speed = 0;
+            return false;
         }
-        if (!err && (speed & (1 << 15)))
+        speed = val;
+        if (speed & (1 << 15)) // 2**15(32768) <= val < 2**16(65536)の意味
         {
             speed = -(speed & ~(1 << 15));
         }
-        return speed;
+        return true;
     }
 
     bool PacketHandler::syncWrite(const u_char *ID, const u_char IDN, const u_char MemAddr, u_char *nDat, const u_char nLen)
@@ -497,13 +496,6 @@ namespace feetech_sts_interface
         {
             this->port_handler_->write(reinterpret_cast<const char *>(&ID[i]), 1);
             this->port_handler_->write(reinterpret_cast<const char *>(nDat + i * nLen), nLen);
-            // std::cout << "write ID: " << (int)ID[i] << std::endl;
-            // std::cout << "write nDat: ";
-            // for (size_t j = 0; j < nLen; ++j)
-            // {
-            //     std::cout << (int)nDat[i * nLen + j] << ", ";
-            // }
-            // std::cout << std::endl;
             Sum += ID[i];
             for (size_t j = 0; j < nLen; ++j)
             {
@@ -572,10 +564,10 @@ namespace feetech_sts_interface
         return writeByte(id, SMS_STS_LOCK, 0);
     }
 
-    int PacketHandler::reg_write_action(const u_char id)
+    int16_t PacketHandler::reg_write_action(const u_char id)
     {
         read_flush();
-        bool ret = writeBuf(id, 0, nullptr, 0, INST_REG_ACTION);
+        writeBuf(id, 0, nullptr, 0, INST_REG_ACTION);
         write_flush();
         return ask(id);
     }

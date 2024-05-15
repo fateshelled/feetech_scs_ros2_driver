@@ -59,12 +59,12 @@ namespace feetech_sts_interface
     bool setMaxAngleLimit(const u_char id, const int16_t angle);
     bool setMinAngleLimit(const u_char id, const int16_t angle);
 
-    int reg_write_action(const u_char id);
+    int16_t reg_write_action(const u_char id);
 
     int16_t readWord(const u_char, const u_char);
 
-    int16_t readPos(const u_char id);
-    int16_t readSpd(const u_char id);
+    bool readPos(const u_char id, int16_t &pos);
+    bool readSpd(const u_char id, int16_t &speed);
 
     bool lockEprom(const u_char id);
     bool unlockEprom(const u_char id);
@@ -75,9 +75,9 @@ namespace feetech_sts_interface
 
     void read_flush();
     void write_flush();
-    int ask(const u_char id);
-    int checkHead();
-    int read(const u_char id, const u_char mem_adder, u_char *n_data, u_char n_len);
+    int16_t ask(const u_char id);
+    int16_t checkHead();
+    int16_t read(const u_char id, const u_char mem_adder, u_char *n_data, u_char n_len);
     bool writeByte(const u_char id, const u_char mem_adder, const u_char data);
     bool writeWord(const u_char id, const u_char mem_adder, const uint16_t data);
     bool genWrite(const u_char id,
@@ -93,6 +93,6 @@ namespace feetech_sts_interface
     //
     void host2STS(u_char *const data_l, u_char *const data_h, const u_short data);
     //
-    int STS2host(const u_char data_l, const u_char data_h);
+    int16_t STS2host(const u_char data_l, const u_char data_h);
   };
 } // namespace feetech_sts_interface
