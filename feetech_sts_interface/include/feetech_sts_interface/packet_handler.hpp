@@ -88,11 +88,10 @@ namespace feetech_sts_interface
         const u_char id, const u_char mem_adder, const u_char *const param,
         const u_int8_t param_len, const u_char function
     );
-    //
-    bool syncWrite(const u_char *ID, const u_char IDN, const u_char MemAddr, u_char *nDat, const u_char nLen);
-    //
+    bool syncWrite(
+      const u_char *ID, const u_char IDN, const u_char MemAddr, u_char *nDat, const u_char nLen);
+
     void host2STS(u_char *const data_l, u_char *const data_h, const u_short data);
-    //
     int16_t STS2host(const u_char data_l, const u_char data_h);
   };
 } // namespace feetech_sts_interface

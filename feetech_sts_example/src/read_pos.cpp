@@ -41,10 +41,18 @@ int main(int argc, char ** argv)
   using namespace std::chrono_literals;  // NOLINT
   while (true)
   {
-    float pos_angle = feetech_sts_interface::STS3032::data2angle(packet_handler->readPos(TARGET_ID));
-    std::cout << "pos: ";
-    std::cout << std::fixed << std::setprecision(3) << pos_angle;
-    std::cout << " deg" << std::endl;
+    int16_t val = 0;
+    if (packet_handler->readPos(TARGET_ID, val))
+    {
+      float pos_angle = feetech_sts_interface::STS3032::data2angle(val);
+      std::cout << "pos: ";
+      std::cout << std::fixed << std::setprecision(3) << pos_angle;
+      std::cout << " deg" << std::endl;
+    }
+    else
+    {
+      std::cout << "failed to read pos" << std::endl;
+    }
     std::this_thread::sleep_for(100ms);
   }
 

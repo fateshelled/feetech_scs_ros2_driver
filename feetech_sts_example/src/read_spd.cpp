@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include <feetech_sts_interface/feetech_sts_interface.hpp>
 #include <unistd.h>
 
@@ -41,9 +40,17 @@ int main(int argc, char ** argv)
   using namespace std::chrono_literals;  // NOLINT
   while (true)
   {
-    std::cout << "spd: ";
-    std::cout << feetech_sts_interface::STS3032::data2angle(packet_handler->readSpd(TARGET_ID));
-    std::cout << " deg" << std::endl;
+    int16_t val = 0;
+    if (packet_handler->readSpd(TARGET_ID, val))
+    {
+      std::cout << "spd: ";
+      std::cout << feetech_sts_interface::STS3032::data2angle(val);
+      std::cout << " deg" << std::endl;
+    }
+    else
+    {
+      std::cout << "failed to read speed" << std::endl;
+    }
     std::this_thread::sleep_for(100ms);
   }
 

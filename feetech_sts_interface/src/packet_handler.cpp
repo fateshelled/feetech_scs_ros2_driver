@@ -139,7 +139,7 @@ namespace feetech_sts_interface
     int16_t PacketHandler::read(const u_char id, const u_char mem_adder, u_char *n_data, u_char n_len)
     {
         read_flush();
-        bool write_success =writeBuf(id, mem_adder, &n_len, 1, INST_READ);
+        writeBuf(id, mem_adder, &n_len, 1, INST_READ);
         write_flush();
 
         if (!checkHead())

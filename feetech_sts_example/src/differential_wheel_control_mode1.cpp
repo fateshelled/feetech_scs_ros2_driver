@@ -4,9 +4,9 @@
 #define min(a, b) ((a < b) ? a : b)
 #define clip(a, max_val, min_val) (max(min(a, max_val), min_val))
 
-wheel_speed convert_to_speed(geometry_msgs::msg::Twist cmd_vel)
+WheelSpeedCmd convert_to_speed(geometry_msgs::msg::Twist cmd_vel)
 {
-  wheel_speed ret = {};
+  WheelSpeedCmd ret = {};
   ret.right = STEP_RATIO * (linear_coef * cmd_vel.linear.x + angular_coef_r * cmd_vel.angular.z);
   ret.left = -STEP_RATIO * (linear_coef * cmd_vel.linear.x + angular_coef_l * cmd_vel.angular.z);
   ret.right = clip(ret.right, MAX_SPEED, -MAX_SPEED);
@@ -18,11 +18,11 @@ void move_cmd(const u_char id_right, const u_char id_left,
               std::shared_ptr<feetech_sts_interface::PacketHandler> packet_handler,
               const geometry_msgs::msg::Twist &cmd_vel)
 {
-  wheel_speed speed = convert_to_speed(cmd_vel);
+  auto speed = convert_to_speed(cmd_vel);
   u_char id_list[2] = {(u_char)id_right, (u_char)id_left};
   int16_t vel_list[2] = {speed.right, speed.left};
   u_short acc_list[2] = {(u_short)ACC, (u_short)ACC};
-  int16_t goal_list[2] = {1000, -1000};
+  // int16_t goal_list[2] = {1000, -1000};
   // packet_handler->syncWritePosEx(id_list, sizeof(id_list), goal_list, vel_list, acc_list);
   packet_handler->syncWriteSpd(id_list, sizeof(id_list), vel_list, acc_list);
 
@@ -58,19 +58,48 @@ void set_wheel_mode(
   packet_handler->lockEprom(id_left);
 }
 
-/// @brief Wheel Speedを表示する.高頻度に呼び出すと落ちるので注意。
-/// @param id_right Right wheel motorのID
-/// @param id_left Left wheel motorのID
-/// @param packet_handler PacketHandlerのインスタンス
-void print_wheel_speed(const u_char id_right, const u_char id_left, std::shared_ptr<feetech_sts_interface::PacketHandler> packet_handler)
+Status get_status(const u_char id_right, const u_char id_left, std::shared_ptr<feetech_sts_interface::PacketHandler> packet_handler)
 {
-  auto speed_right = feetech_sts_interface::STS3032::data2angle(packet_handler->readSpd(id_right));
-  auto speed_left = feetech_sts_interface::STS3032::data2angle(packet_handler->readSpd(id_left));
+  Status status;
+  {
+    int16_t val0 = 0;
+    int16_t val1 = 0;
+    if (packet_handler->readSpd(id_right, val0) && packet_handler->readSpd(id_left, val1))
+    {
+      status.speed.is_read = true;
+      status.speed.right = feetech_sts_interface::STS3032::data2angle(val0);
+      status.speed.left = feetech_sts_interface::STS3032::data2angle(val1);
+    }
+    if (packet_handler->readPos(id_right, val0) && packet_handler->readPos(id_left, val1))
+    {
+      status.pos.is_read = true;
+      status.pos.right = feetech_sts_interface::STS3032::data2angle(val0);
+      status.pos.left = feetech_sts_interface::STS3032::data2angle(val1);
+    }
+  }
+  return status;
+}
 
-  auto pos_right = packet_handler->readPos(id_right);
-  auto pos_left = packet_handler->readPos(id_left);
-  std::cout << "wheel speed right/ left: " << speed_right << " / " << speed_left << " [deg/sec]" << std::endl;
-  std::cout << "pos right/ left: " << pos_right << " / " << pos_left << std::endl;
+
+void print_status(const Status status)
+{
+  if (status.speed.is_read)
+  {
+    std::cout << "speed right/ left: " << status.speed.right << " / " << status.speed.left << " [deg/sec]" << std::endl;
+  }
+  else
+  {
+    std::cout << "failed to read speed." << std::endl;
+  }
+  if (status.pos.is_read)
+  {
+    std::cout << "pos right/ left: " << status.pos.right << " / " << status.pos.left << std::endl;
+  }
+  else
+  {
+    std::cout << "failed to read pos." << std::endl;
+  }
+  std::cout << std::endl;
 }
 
 int main(int argc, char **argv)
@@ -104,32 +133,45 @@ int main(int argc, char **argv)
   set_wheel_mode(RIGHT_ID, LEFT_ID, packet_handler);
   std::cout << "done." << std::endl;
 
+  // Command stop
+  stop(RIGHT_ID, LEFT_ID, packet_handler);
+  // To stabilize subsequent readings
+  {
+    for (size_t i = 0; i < 5; ++i)
+    {
+      get_status(RIGHT_ID, LEFT_ID, packet_handler);
+    }
+  }
+  // wait 1sec
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
   geometry_msgs::msg::Twist cmd_vel;
 
   std::cout << "MOVE FORWARD." << std::endl;
   cmd_vel.linear.x = 5.0;  // [cm/sec]
   cmd_vel.angular.z = 0.0; // [rad/sec]
   move_cmd(RIGHT_ID, LEFT_ID, packet_handler, cmd_vel);
-  float speed_right = 0.0f;
-  float speed_left = 0.0f;
-  for (size_t i = 0; i < 5; ++i)
+
+  for (size_t i = 0; i < 10; ++i)
   {
-    speed_right = feetech_sts_interface::STS3032::data2angle(packet_handler->readSpd(RIGHT_ID));
-    speed_left = feetech_sts_interface::STS3032::data2angle(packet_handler->readSpd(LEFT_ID));
-    std::cout << "wheel speed right/ left: " << speed_right << " / " << speed_left << " [deg/sec]" << std::endl;
+    auto status = get_status(RIGHT_ID, LEFT_ID, packet_handler);
+    print_status(status);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
 
   std::cout << "STOP." << std::endl;
   stop(RIGHT_ID, LEFT_ID, packet_handler);
+
   size_t counter = 0;
+  auto prev_status = get_status(RIGHT_ID, LEFT_ID, packet_handler);
   while (counter < 10)
   {
-    speed_right = feetech_sts_interface::STS3032::data2angle(packet_handler->readSpd(RIGHT_ID));
-    speed_left = feetech_sts_interface::STS3032::data2angle(packet_handler->readSpd(LEFT_ID));
-    std::cout << "wheel speed right/ left: " << speed_right << " / " << speed_left << " [deg/sec]" << std::endl;
+    auto status = get_status(RIGHT_ID, LEFT_ID, packet_handler);
+    print_status(status);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    if (speed_left == 0.0f && speed_right == 0.0f)
+    const auto delta0 = prev_status.pos.right - status.pos.right;
+    const auto delta1 = prev_status.pos.left - status.pos.left;
+    if (abs(delta0) < 0.1 && abs(delta1) < 0.1)
     {
       ++counter;
     }
@@ -137,6 +179,8 @@ int main(int argc, char **argv)
     {
       counter = 0;
     }
+    prev_status = status;
+    stop(RIGHT_ID, LEFT_ID, packet_handler);
   }
 
   port_handler->close();

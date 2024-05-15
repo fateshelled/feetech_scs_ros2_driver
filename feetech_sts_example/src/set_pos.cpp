@@ -14,12 +14,15 @@
 
 #include <feetech_sts_interface/feetech_sts_interface.hpp>
 
+
 void set_target_pose(std::shared_ptr<feetech_sts_interface::PacketHandler> packet_handler,
   int target_id, int position, int speed, unsigned int acceleration=50)
 {
   int current_pos = -1;
   while (current_pos < 0) {
-    current_pos = packet_handler->readPos(target_id);
+    int16_t val = 0;
+    if (packet_handler->readPos(target_id, val))
+      current_pos = val;
   }
   if (acceleration <= 0) {
     acceleration = 50;
@@ -32,7 +35,15 @@ void set_target_pose(std::shared_ptr<feetech_sts_interface::PacketHandler> packe
   const int sleep_time = 10 * 1000;
 
   for (int i = 0; i < 10; i++) {
-    std::cout << "pos: " << feetech_sts_interface::STS3032::data2angle(packet_handler->readPos(target_id)) << " deg" << std::endl;
+    int16_t val = 0;
+    if (packet_handler->readPos(target_id, val))
+    {
+      std::cout << "pos: " << feetech_sts_interface::STS3032::data2angle(val) << " deg" << std::endl;
+    }
+    else
+    {
+      std::cout << "failed to read pos" << std::endl;
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time / 10));
   }
 }
